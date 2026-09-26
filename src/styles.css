@@ -191,6 +191,30 @@ h2 {
   font-size: 1.2rem;
 }
 
+.search-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 24rem;
+  margin-block: 1rem 0.5rem;
+}
+
+.search-bar label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--ink-secondary);
+}
+
+.search-bar input {
+  flex: none;
+  width: 100%;
+}
+
+#search-status {
+  min-height: 1.2rem;
+  font-size: 0.9rem;
+}
+
 .catalog {
   list-style: none;
   padding: 0;

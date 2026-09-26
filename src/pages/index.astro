@@ -69,10 +69,23 @@ const error = Astro.url.searchParams.get("error");
 
       <section aria-labelledby="catalog-heading">
         <h2 id="catalog-heading">Catalog</h2>
-        <ul class="catalog">
+        <div class="search-bar" role="search">
+          <label for="course-search">Search courses</label>
+          <input
+            type="search"
+            id="course-search"
+            placeholder="Search by code or title, e.g. COMP2100"
+            autocomplete="off"
+          />
+        </div>
+        <p id="search-status" class="muted" aria-live="polite"></p>
+        <ul class="catalog" id="catalog-list">
           {
             courses.map((course) => (
-              <li class={`course-card ${course.seatsLeft <= 0 ? "is-full" : ""}`}>
+              <li
+                class={`course-card ${course.seatsLeft <= 0 ? "is-full" : ""}`}
+                data-search={`${course.code} ${course.title}`.toLowerCase()}
+              >
                 <div class="course-head">
                   <h3>
                     {course.code} — {course.title}
@@ -129,7 +142,32 @@ const error = Astro.url.searchParams.get("error");
             ))
           }
         </ul>
+        <p id="no-results" class="muted" hidden>
+          No courses match your search.
+        </p>
       </section>
     </main>
+    <script>
+      const input = document.querySelector<HTMLInputElement>("#course-search");
+      const cards = Array.from(document.querySelectorAll<HTMLElement>(".course-card"));
+      const status = document.querySelector<HTMLElement>("#search-status");
+      const noResults = document.querySelector<HTMLElement>("#no-results");
+
+      function applyFilter(): void {
+        const query = (input?.value ?? "").trim().toLowerCase();
+        let visible = 0;
+        for (const card of cards) {
+          const matches = query === "" || (card.dataset.search ?? "").includes(query);
+          card.hidden = !matches;
+          if (matches) visible += 1;
+        }
+        if (status) {
+          status.textContent = query === "" ? "" : `${visible} of ${cards.length} courses match`;
+        }
+        if (noResults) noResults.hidden = visible !== 0;
+      }
+
+      input?.addEventListener("input", applyFilter);
+    </script>
   </body>
 </html>
