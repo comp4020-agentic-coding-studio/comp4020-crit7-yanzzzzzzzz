@@ -93,18 +93,20 @@ const error = Astro.url.searchParams.get("error");
                   </div>
                 )}
 
-                {course.state === "none" &&
-                  (course.prereqsMet && course.seatsLeft > 0 ? (
-                    <form method="post" action="/api/enrol">
-                      <input type="hidden" name="courseId" value={course.id} />
-                      <button>Enrol in {course.code}</button>
-                    </form>
-                  ) : (
-                    <p>
-                      Can't enrol:{" "}
-                      {!course.prereqsMet ? "prerequisites not met" : "course is full"}
-                    </p>
-                  ))}
+                {course.state === "none" && (
+                  <form method="post" action="/api/enrol">
+                    <input type="hidden" name="courseId" value={course.id} />
+                    <button disabled={!course.prereqsMet || !(course.seatsLeft > 0)}>
+                      Enrol in {course.code}
+                    </button>
+                  </form>
+                )}
+                {course.state === "none" && (!course.prereqsMet || !(course.seatsLeft > 0)) && (
+                  <p>
+                    Can't enrol:{" "}
+                    {!course.prereqsMet ? "prerequisites not met" : "course is full"}
+                  </p>
+                )}
               </li>
             ))
           }
