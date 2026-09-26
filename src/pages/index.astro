@@ -1,10 +1,17 @@
 ---
-import { getChosenSpecialisationId, listCourses, listSpecialisations, progress } from "../lib/db";
+import {
+  getChosenSpecialisationId,
+  listCourses,
+  listPendingPermissionRequests,
+  listSpecialisations,
+  progress,
+} from "../lib/db";
 import "../styles.css";
 
 const courses = listCourses();
 const specialisations = listSpecialisations();
 const chosenSpecialisationId = getChosenSpecialisationId();
+const pendingPermissionRequests = listPendingPermissionRequests();
 const { completedUnits, requiredUnits, completed } = progress();
 const error = Astro.url.searchParams.get("error");
 ---
@@ -155,20 +162,51 @@ const error = Astro.url.searchParams.get("error");
                   </div>
                 )}
 
-                {course.state === "none" && (
-                  <form method="post" action="/api/enrol">
-                    <input type="hidden" name="courseId" value={course.id} />
-                    <button disabled={!course.prereqsMet || !(course.seatsLeft > 0)}>
-                      Enrol in {course.code}
-                    </button>
-                  </form>
-                )}
-                {course.state === "none" && (!course.prereqsMet || !(course.seatsLeft > 0)) && (
-                  <p class="blocked-note">
-                    Can't enrol:{" "}
-                    {!course.prereqsMet ? "prerequisites not met" : "course is full"}
-                  </p>
-                )}
+                {course.state === "none" && (() => {
+                  const blocked = !course.prereqsMet || !(course.seatsLeft > 0);
+                  const hasPermission = course.permissionStatus === "approved";
+                  return (
+                    <>
+                      <form method="post" action="/api/enrol">
+                        <input type="hidden" name="courseId" value={course.id} />
+                        <button disabled={blocked && !hasPermission}>Enrol in {course.code}</button>
+                      </form>
+                      {blocked && hasPermission && (
+                        <p class="muted">Permission granted — you can enrol.</p>
+                      )}
+                      {blocked && !hasPermission && (
+                        <>
+                          <p class="blocked-note">
+                            Can't enrol:{" "}
+                            {!course.prereqsMet ? "prerequisites not met" : "course is full"}
+                          </p>
+                          {course.permissionStatus === "pending" && (
+                            <p class="muted">Permission requested — waiting on the convener.</p>
+                          )}
+                          {course.permissionStatus === "denied" && (
+                            <p class="muted">Permission denied.</p>
+                          )}
+                          {(course.permissionStatus === "none" ||
+                            course.permissionStatus === "denied") && (
+                            <form method="post" action="/api/request-permission">
+                              <input type="hidden" name="courseId" value={course.id} />
+                              <input
+                                type="text"
+                                name="reason"
+                                placeholder="Why do you need an exception? (optional)"
+                              />
+                              <button>
+                                {course.permissionStatus === "denied"
+                                  ? "Request again"
+                                  : "Request permission to enrol"}
+                              </button>
+                            </form>
+                          )}
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
               </li>
             ))
           }
@@ -176,6 +214,44 @@ const error = Astro.url.searchParams.get("error");
         <p id="no-results" class="muted" hidden>
           No courses match your search.
         </p>
+      </section>
+
+      <section class="panel" aria-labelledby="permission-heading">
+        <h2 id="permission-heading">Permission requests (convener view)</h2>
+        <p class="muted">
+          Models the other side of the same request — approve or deny one to see it
+          take effect on the catalog above.
+        </p>
+        {
+          pendingPermissionRequests.length > 0 ? (
+            <ul class="permission-queue">
+              {pendingPermissionRequests.map((req) => (
+                <li>
+                  <p>
+                    <strong>
+                      {req.code} — {req.title}
+                    </strong>
+                  </p>
+                  {req.reason && <p class="permission-reason">"{req.reason}"</p>}
+                  <div class="actions">
+                    <form method="post" action="/api/decide-permission">
+                      <input type="hidden" name="courseId" value={req.courseId} />
+                      <input type="hidden" name="decision" value="approved" />
+                      <button>Approve</button>
+                    </form>
+                    <form method="post" action="/api/decide-permission">
+                      <input type="hidden" name="courseId" value={req.courseId} />
+                      <input type="hidden" name="decision" value="denied" />
+                      <button>Deny</button>
+                    </form>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p class="muted">No pending requests.</p>
+          )
+        }
       </section>
     </main>
     <script>
