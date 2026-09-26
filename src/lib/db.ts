@@ -42,6 +42,7 @@ const SEED_COURSES: { code: string; title: string; units: number; capacity: numb
   { code: "COMP4020", title: "Agentic Coding Studio", units: 6, capacity: 1 },
   { code: "COMP1720", title: "Art and Interaction Design", units: 6, capacity: 3 },
   { code: "COMP2550", title: "Studio Habits of Mind", units: 6, capacity: 3 },
+  { code: "COMP3530", title: "Advanced Computer Networks", units: 6, capacity: 0 },
 ];
 
 // [course, prerequisite] pairs — a course needs every prerequisite listed
