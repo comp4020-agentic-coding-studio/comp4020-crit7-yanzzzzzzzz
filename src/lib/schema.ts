@@ -7,6 +7,16 @@ import { int, primaryKey, sqliteTable, text, unique } from "drizzle-orm/sqlite-c
 // boots (see src/lib/db.ts), locally and deployed. Never edit the database
 // by hand: state on the deployed volume outlives every deploy, and the
 // migration trail is what keeps old state and new code compatible.
+export const specialisations = sqliteTable(
+  "specialisations",
+  {
+    id: int().primaryKey({ autoIncrement: true }),
+    name: text().notNull(),
+    summary: text().notNull(),
+  },
+  (t) => [unique().on(t.name)],
+);
+
 export const courses = sqliteTable(
   "courses",
   {
@@ -15,6 +25,8 @@ export const courses = sqliteTable(
     title: text().notNull(),
     units: int().notNull(),
     capacity: int().notNull(),
+    // null = core/foundational: belongs to no direction, always shown.
+    specialisationId: int("specialisation_id").references(() => specialisations.id),
   },
   (t) => [unique().on(t.code)],
 );
@@ -47,5 +59,13 @@ export const enrolments = sqliteTable("enrolments", {
     .default(sql`(datetime('now'))`),
 });
 
+// Single-row state for this single-student app — same no-student-id
+// rationale as `enrolments` above. Row id is always 1.
+export const profile = sqliteTable("profile", {
+  id: int().primaryKey(),
+  chosenSpecialisationId: int("chosen_specialisation_id").references(() => specialisations.id),
+});
+
 export type Course = typeof courses.$inferSelect;
 export type Enrolment = typeof enrolments.$inferSelect;
+export type Specialisation = typeof specialisations.$inferSelect;
