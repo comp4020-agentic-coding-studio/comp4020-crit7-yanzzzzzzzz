@@ -215,6 +215,44 @@ h2 {
   font-size: 0.9rem;
 }
 
+.specialisation-grid {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.9rem;
+}
+
+.specialisation-card {
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.specialisation-card h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.specialisation-card.is-chosen {
+  border-color: var(--accent);
+  background: #f3f8fe;
+}
+
+.specialisation-pill {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--ink-muted);
+}
+
+.course-card.in-specialisation {
+  border-left: 3px solid var(--accent);
+}
+
 .catalog {
   list-style: none;
   padding: 0;

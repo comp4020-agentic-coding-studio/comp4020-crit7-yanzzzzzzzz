@@ -1,8 +1,10 @@
 ---
-import { listCourses, progress } from "../lib/db";
+import { getChosenSpecialisationId, listCourses, listSpecialisations, progress } from "../lib/db";
 import "../styles.css";
 
 const courses = listCourses();
+const specialisations = listSpecialisations();
+const chosenSpecialisationId = getChosenSpecialisationId();
 const { completedUnits, requiredUnits, completed } = progress();
 const error = Astro.url.searchParams.get("error");
 ---
@@ -67,6 +69,32 @@ const error = Astro.url.searchParams.get("error");
         }
       </section>
 
+      <section class="panel" aria-labelledby="specialisation-heading">
+        <h2 id="specialisation-heading">Your specialisation</h2>
+        <p class="muted">
+          Courses under your chosen direction are highlighted in the catalog below —
+          nothing outside it is hidden, since a direction's electives can still be
+          prerequisites you need for other courses.
+        </p>
+        <ul class="specialisation-grid">
+          {
+            specialisations.map((spec) => {
+              const isChosen = spec.id === chosenSpecialisationId;
+              return (
+                <li class={`specialisation-card ${isChosen ? "is-chosen" : ""}`}>
+                  <h3>{spec.name}</h3>
+                  <p class="muted">{spec.summary}</p>
+                  <form method="post" action="/api/choose-specialisation">
+                    <input type="hidden" name="specialisationId" value={spec.id} />
+                    <button disabled={isChosen}>{isChosen ? "Following ✓" : "Choose"}</button>
+                  </form>
+                </li>
+              );
+            })
+          }
+        </ul>
+      </section>
+
       <section aria-labelledby="catalog-heading">
         <h2 id="catalog-heading">Catalog</h2>
         <div class="search-bar" role="search">
@@ -83,7 +111,9 @@ const error = Astro.url.searchParams.get("error");
           {
             courses.map((course) => (
               <li
-                class={`course-card ${course.seatsLeft <= 0 ? "is-full" : ""}`}
+                class={`course-card ${course.seatsLeft <= 0 ? "is-full" : ""} ${
+                  course.inChosenSpecialisation ? "in-specialisation" : ""
+                }`}
                 data-search={`${course.code} ${course.title}`.toLowerCase()}
               >
                 <div class="course-head">
@@ -92,6 +122,7 @@ const error = Astro.url.searchParams.get("error");
                   </h3>
                   <span class="units-pill">{course.units} units</span>
                 </div>
+                <p class="specialisation-pill">{course.specialisationName ?? "Core"}</p>
                 <p class={`seats ${course.seatsLeft > 0 ? "" : "seats-full"}`}>
                   {course.seatsLeft > 0
                     ? `${course.seatsLeft} / ${course.capacity} seats left`
