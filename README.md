@@ -22,6 +22,12 @@ four things this prototype fixes:
   and enrolling is rejected server-side if you haven't.
 - **there's no view of what's left** — a progress section totals completed
   units against a program requirement, and lists what you've finished.
+- **there's no sense of direction** — the real Master of Computing has five
+  specialisations (Artificial Intelligence, Computational Foundations,
+  Computer Systems, Information and Human-Centred Computing, Software
+  Engineering) and picking one is how you know which electives are actually
+  for you — here it's a panel above the catalog, and matching courses are
+  highlighted rather than buried in a separate page.
 
 I chose not to build:
 
@@ -34,8 +40,12 @@ I chose not to build:
   (mark it complete) rather than something that happens when a term ends.
 - **timetable/session clash checking.** A real pain point, but a different
   slice — this one is about what you can enrol in, not when it's on.
-- **catalog administration.** The course list is a fixed seed applied once
-  at boot; adding or editing courses isn't a flow this prototype offers.
+- **catalog or specialisation administration.** The course list and the five
+  specialisations are both a fixed seed applied once at boot; adding or
+  editing either isn't a flow this prototype offers. Choosing a
+  specialisation only highlights its electives in the catalog — it never
+  hides a course, since an elective under one direction can still be a
+  prerequisite a course under another direction needs.
 
 Server-side validation is the one thing I treat as non-negotiable rather
 than a judgement call: a course being full or a prerequisite being unmet is
