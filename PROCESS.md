@@ -64,3 +64,25 @@ The one design call that mattered: a chosen specialisation only *highlights*
 its electives, it never hides the rest of the catalog — a direction's
 elective can still be a prerequisite a course under another direction needs,
 so hiding by direction would have hidden a course a student still needed.
+
+## Round three: an escape hatch for a blocked course
+
+Next feedback: a blocked course card was a dead end, and the real system's
+answer — email the convener for a permission code — deserved modeling too,
+not just complaining about. Same bottom-up order again: schema
+([`6e1f0eb`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit7-yanzzzzzzzz/commit/6e1f0ebd252f6ec7a335fe33d8362dc1b8134f42)),
+backend logic
+([`b8c780a`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit7-yanzzzzzzzz/commit/b8c780ad1e815c5f14499b6a7abf8b2ff5433475)),
+routes
+([`f033601`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit7-yanzzzzzzzz/commit/f033601f12cdbd85a94c36d5a760f17f9dee4319)),
+UI
+([`4211696`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit7-yanzzzzzzzz/commit/4211696c6176d4b866bc463dd342973bd75adefb)),
+then tests
+([`b44c44f`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit7-yanzzzzzzzz/commit/b44c44f50178dbdcfe263a6530475e3185a377e6)).
+
+There's still no login for a second "convener" role — a queue panel on the
+same single-user page models both sides of the same request instead. Testing
+it needed two new always-full fixture courses rather than reusing the
+existing one (`COMP3530`): vitest runs spec files concurrently against one
+shared database, so a test in this new file enrolling into `COMP3530` would
+race `spec/enrolment.test.ts`'s own assertion that it never gets enrolled.

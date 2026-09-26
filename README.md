@@ -28,6 +28,12 @@ four things this prototype fixes:
   Engineering) and picking one is how you know which electives are actually
   for you — here it's a panel above the catalog, and matching courses are
   highlighted rather than buried in a separate page.
+- **a full or prerequisite-blocked course is a dead end** — the real system
+  makes you email the convener for a permission code with no way to track
+  it. Here a blocked course card has a "request permission" button; a
+  convener queue below the catalog lists pending requests with approve/deny
+  actions, and an approved request lets that course be enrolled in
+  regardless of the block, right there on reload.
 
 I chose not to build:
 
@@ -46,6 +52,12 @@ I chose not to build:
   specialisation only highlights its electives in the catalog — it never
   hides a course, since an elective under one direction can still be a
   prerequisite a course under another direction needs.
+- **a real convener login.** There's still only one student here — the
+  permission-request queue is a second panel on the same single-user page,
+  modeling both sides of the request rather than adding real accounts. An
+  approved request also waives *both* the prerequisite and capacity checks
+  together; modeling which specific restriction was the one actually waived
+  wasn't worth the added complexity for this slice.
 
 Server-side validation is the one thing I treat as non-negotiable rather
 than a judgement call: a course being full or a prerequisite being unmet is
