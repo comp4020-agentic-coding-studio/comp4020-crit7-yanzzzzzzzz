@@ -15,13 +15,18 @@ const error = Astro.url.searchParams.get("error");
     <title>Course enrolment — COMP4020 prototype</title>
   </head>
   <body>
-    <nav aria-label="site">
-      <a href="/">Enrolment</a>
-      <a href="/readme/">About</a>
-    </nav>
+    <header class="site-header">
+      <div class="header-inner">
+        <p class="brand">ANU Course Enrolment</p>
+        <nav aria-label="site">
+          <a href="/">Enrolment</a>
+          <a href="/readme/">About</a>
+        </nav>
+      </div>
+    </header>
     <main>
       <h1>Course enrolment</h1>
-      <p>
+      <p class="lede">
         Browse the catalog, see seats and prerequisites against what you've
         actually done, and enrol without leaving the page.
       </p>
@@ -34,22 +39,30 @@ const error = Astro.url.searchParams.get("error");
         )
       }
 
-      <section aria-labelledby="progress-heading">
+      <section class="panel" aria-labelledby="progress-heading">
         <h2 id="progress-heading">Progress</h2>
-        <p>
-          {completedUnits} / {requiredUnits} units completed
-        </p>
+        <div class="progress-stat">
+          <p class="stat-value">
+            {completedUnits} <span class="stat-unit">/ {requiredUnits} units completed</span>
+          </p>
+          <progress
+            class="meter"
+            value={completedUnits}
+            max={requiredUnits}
+            aria-labelledby="progress-heading"
+          />
+        </div>
         {
           completed.length > 0 ? (
-            <ul>
+            <ul class="chip-list">
               {completed.map((course) => (
-                <li>
+                <li class="chip">
                   {course.code} — {course.title}
                 </li>
               ))}
             </ul>
           ) : (
-            <p>Nothing completed yet.</p>
+            <p class="muted">Nothing completed yet.</p>
           )
         }
       </section>
@@ -59,17 +72,20 @@ const error = Astro.url.searchParams.get("error");
         <ul class="catalog">
           {
             courses.map((course) => (
-              <li class="course">
-                <h3>
-                  {course.code} — {course.title} ({course.units} units)
-                </h3>
-                <p>
+              <li class={`course-card ${course.seatsLeft <= 0 ? "is-full" : ""}`}>
+                <div class="course-head">
+                  <h3>
+                    {course.code} — {course.title}
+                  </h3>
+                  <span class="units-pill">{course.units} units</span>
+                </div>
+                <p class={`seats ${course.seatsLeft > 0 ? "" : "seats-full"}`}>
                   {course.seatsLeft > 0
                     ? `${course.seatsLeft} / ${course.capacity} seats left`
                     : "Full"}
                 </p>
                 {course.prerequisites.length > 0 && (
-                  <p>
+                  <p class="prereqs">
                     Requires:{" "}
                     {course.prerequisites
                       .map((p) => `${p.code} (${p.met ? "done" : "not done"})`)
@@ -77,11 +93,13 @@ const error = Astro.url.searchParams.get("error");
                   </p>
                 )}
 
-                {course.state === "completed" && <p class="badge">Completed</p>}
+                {course.state === "completed" && (
+                  <p class="badge badge-completed">Completed</p>
+                )}
 
                 {course.state === "enrolled" && (
                   <div class="actions">
-                    <p class="badge">Enrolled</p>
+                    <p class="badge badge-enrolled">Enrolled</p>
                     <form method="post" action="/api/complete">
                       <input type="hidden" name="courseId" value={course.id} />
                       <button>Mark {course.code} complete</button>
@@ -102,7 +120,7 @@ const error = Astro.url.searchParams.get("error");
                   </form>
                 )}
                 {course.state === "none" && (!course.prereqsMet || !(course.seatsLeft > 0)) && (
-                  <p>
+                  <p class="blocked-note">
                     Can't enrol:{" "}
                     {!course.prereqsMet ? "prerequisites not met" : "course is full"}
                   </p>
