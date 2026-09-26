@@ -1,54 +1,37 @@
 # Process overview
 
-<!-- TEMPLATE: this file is a shape to fill in, not a form. Replace everything
-     in it with your own overview, and delete this comment — `pnpm
-     check:evidence` will remind you if it's still here. -->
-
-Written by you, for a reader: how you got from the brief to the harness and
-agentic workflow behind this submission. Markers read this file and follow its
-citations; they don't trawl the repo for evidence you didn't point at.
-
-This file is the shape; the course site's
-[assessment page](https://comp.anu.edu.au/courses/comp4020-agentic-coding-studio/topics/assessment/#what-you-submit)
-is the requirement, and its
-[word counts](https://comp.anu.edu.au/courses/comp4020-agentic-coding-studio/topics/assessment/#word-counts)
-cover every deliverable.
-
 ## What I built
 
-A sentence or two. `README.md` is where the account of what the app is and what
-good means here lives; this file is how you got there.
+A single-student course enrolment dashboard: one card per course showing
+seats left, prerequisite status against what's actually completed, and an
+inline enrol/drop/complete action, backed by server-side capacity and
+prerequisite checks. `README.md` covers what it is and what good looks like
+here.
 
 ## How I got here
 
-The account of the process: how the work actually went, and how you knew the
-result was right. Tell it in whatever order makes it clear. A weekly prototype
-needs a paragraph or two; an assignment needs more.
+I worked the stack bottom-up so each commit stood on a real, checkable layer
+below it. Schema first —
+[`1797696`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit7-yanzzzzzzzz/commit/17976968b99285ff5d6b9f1f8686875bd5092e7c)
+replaced the guestbook's `messages` table with courses/prerequisites/enrolments
+and the enrol/drop/complete/progress helpers in `db.ts`, using two migrations
+instead of `drizzle-kit`'s interactive rename prompt, which needs a TTY this
+environment doesn't have. Routes came next
+([`6201993`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit7-yanzzzzzzzz/commit/6201993c9bc0632df2fa61dc89df9cf83be3cb4c)),
+then the UI itself
+([`00c02c4`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit7-yanzzzzzzzz/commit/00c02c425fe51e951e9f9e7ae038316fda0b0e2e)).
 
-Cite the record as you go, as links whose text is the commit hash or range and
-whose target is this repo's commit or compare URL, so a reader clicks straight
-to the evidence:
-
-- one commit: [`a1b2c3d`](https://github.com/YOUR-ORG/YOUR-REPO/commit/a1b2c3d)
-- a range:
-  [`a1b2c3d...e4f5a6b`](https://github.com/YOUR-ORG/YOUR-REPO/compare/a1b2c3d...e4f5a6b)
-
-To pair a prompt with the commit it produced, quote the prompt (curated, not a
-full transcript) next to the citation:
-
-> the prompt, verbatim
-
-Screenshots are welcome where one carries the point better than a sentence does.
-Commit the file to this repo and link it with a **relative** path, which is what
-makes it render on GitHub: `![alt text](docs/before.png)`. Images don't count
-towards the word count and don't replace the citation.
-
-## Before you ship
-
-`pnpm check:evidence` verifies that this comment is gone, that your citations
-resolve to real commits, that a crit week's reflection entry is in
-`reflections/`, and that your `CLAUDE.md` is there. It checks that your account
-is traceable, not that it is good: that is the marker's call.
-
-Images aren't checked: unlike a citation whose SHA doesn't resolve, a broken
-image is visible the moment this file is rendered on GitHub.
+I knew it was right because I replaced the guestbook's HTTP-level spec with
+my own contract tests
+([`86de11c`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit7-yanzzzzzzzz/commit/86de11c4273f77afbd8b5da349a4e4b3b602de19)):
+an enrolment survives a reload, capacity and prerequisite rejections happen
+server-side (not just a disabled button), and completing a prerequisite
+unlocks the course that needed it. Running that suite caught a real gap: the
+UI was omitting the enrol form entirely for full or prereq-missing courses,
+which made the button's *absence* the actual gate rather than the server
+check —
+[`1ce5c86`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit7-yanzzzzzzzz/commit/1ce5c86f45af6ed7698fdc24501759a713aa335a)
+fixed that by always rendering the form and disabling the button as a hint
+only. Docs
+([`62a067c`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit7-yanzzzzzzzz/commit/62a067cd2ecba844231b9bdf84617c62a1c5d120))
+came last, once the app matched what they claim.
