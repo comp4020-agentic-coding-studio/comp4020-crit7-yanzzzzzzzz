@@ -35,6 +35,46 @@ button {
   font: inherit;
 }
 
-#messages {
-  padding-inline-start: 1.2rem;
+.error {
+  padding: 0.6rem 1rem;
+  background: #fde8e8;
+  color: #8a1f1f;
+  border-radius: 0.3rem;
+}
+
+.catalog {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.course {
+  border: 1px solid #d0d0d0;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.course h3 {
+  margin-block-start: 0;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.1rem 0.6rem;
+  border-radius: 999px;
+  background: #e6f4ea;
+  color: #1a5e2a;
+  font-size: 0.9rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.actions form {
+  margin: 0;
 }
