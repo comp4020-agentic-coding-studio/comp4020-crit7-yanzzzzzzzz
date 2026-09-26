@@ -7,9 +7,11 @@ import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import {
   type Course,
   type Enrolment,
+  type PermissionRequest,
   type Specialisation,
   courses,
   enrolments,
+  permissionRequests,
   prerequisites,
   profile,
   specialisations,
@@ -33,7 +35,7 @@ export const db = drizzle(client);
 // commit the migration it writes to drizzle/.
 migrate(db, { migrationsFolder: "./drizzle" });
 
-export type { Course, Enrolment, Specialisation };
+export type { Course, Enrolment, Specialisation, PermissionRequest };
 
 // A representative program total, so "what's left" has something to be left
 // out of. There's no real program/degree record in this slice — see README.
@@ -138,6 +140,24 @@ const SEED_COURSES: {
     capacity: 2,
     specialisation: "Artificial Intelligence",
   },
+  // Always-full, no-prerequisite fixtures dedicated to the permission-request
+  // flow, isolated from spec/enrolment.test.ts's own always-full course
+  // (COMP3530) so the two spec files can't race on the same seat count when
+  // vitest runs them concurrently against one shared database.
+  {
+    code: "COMP8010",
+    title: "Directed Studies (Permission Required)",
+    units: 6,
+    capacity: 0,
+    specialisation: null,
+  },
+  {
+    code: "COMP8020",
+    title: "Advanced Independent Project (Permission Required)",
+    units: 6,
+    capacity: 0,
+    specialisation: null,
+  },
 ];
 
 // [course, prerequisite] pairs — a course needs every prerequisite listed
@@ -211,6 +231,7 @@ function ensureProfile(): void {
 ensureProfile();
 
 export type EnrolmentState = "none" | "enrolled" | "completed";
+export type PermissionStatus = "none" | "pending" | "approved" | "denied";
 
 export type CourseView = Course & {
   seatsLeft: number;
@@ -219,6 +240,7 @@ export type CourseView = Course & {
   prereqsMet: boolean;
   specialisationName: string | null;
   inChosenSpecialisation: boolean;
+  permissionStatus: PermissionStatus;
 };
 
 export function listSpecialisations(): Pick<Specialisation, "id" | "name" | "summary">[] {
@@ -248,11 +270,15 @@ export function listCourses(): CourseView[] {
   const allEnrolments = db.select().from(enrolments).all();
   const allPrereqs = db.select().from(prerequisites).all();
   const allSpecialisations = db.select().from(specialisations).all();
+  const allPermissionRequests = db.select().from(permissionRequests).all();
   const chosenSpecialisationId = getChosenSpecialisationId();
 
   const byId = new Map(allCourses.map((c) => [c.id, c]));
   const specById = new Map(allSpecialisations.map((s) => [s.id, s]));
   const enrolmentByCourse = new Map(allEnrolments.map((e) => [e.courseId, e]));
+  const permissionByCourse = new Map(
+    allPermissionRequests.map((r) => [r.courseId, r.status as PermissionStatus]),
+  );
   const completedCourseIds = new Set(
     allEnrolments.filter((e) => e.status === "completed").map((e) => e.courseId),
   );
@@ -284,8 +310,77 @@ export function listCourses(): CourseView[] {
         : null,
       inChosenSpecialisation:
         chosenSpecialisationId !== null && course.specialisationId === chosenSpecialisationId,
+      permissionStatus: permissionByCourse.get(course.id) ?? "none",
     };
   });
+}
+
+export type RequestPermissionResult = { ok: true } | { ok: false; reason: string };
+
+export function requestPermission(courseId: number, reason: string): RequestPermissionResult {
+  const course = listCourses().find((c) => c.id === courseId);
+  if (!course) return { ok: false, reason: "no such course" };
+  if (course.state !== "none") return { ok: false, reason: `already ${course.state} in ${course.code}` };
+  if (course.prereqsMet && course.seatsLeft > 0) {
+    return { ok: false, reason: `${course.code} doesn't need permission to enrol` };
+  }
+
+  const trimmedReason = reason.trim().slice(0, 500) || null;
+  const existing = db
+    .select()
+    .from(permissionRequests)
+    .where(eq(permissionRequests.courseId, courseId))
+    .get();
+  if (existing) {
+    db.update(permissionRequests)
+      .set({ status: "pending", reason: trimmedReason, decidedAt: null })
+      .where(eq(permissionRequests.id, existing.id))
+      .run();
+  } else {
+    db.insert(permissionRequests).values({ courseId, reason: trimmedReason, status: "pending" }).run();
+  }
+  return { ok: true };
+}
+
+export type DecidePermissionResult = { ok: true } | { ok: false; reason: string };
+
+export function decidePermission(
+  courseId: number,
+  decision: "approved" | "denied",
+): DecidePermissionResult {
+  const existing = db
+    .select()
+    .from(permissionRequests)
+    .where(eq(permissionRequests.courseId, courseId))
+    .get();
+  if (!existing || existing.status !== "pending") {
+    return { ok: false, reason: "no pending permission request for that course" };
+  }
+
+  db.update(permissionRequests)
+    .set({ status: decision, decidedAt: new Date().toISOString() })
+    .where(eq(permissionRequests.id, existing.id))
+    .run();
+  return { ok: true };
+}
+
+export function listPendingPermissionRequests(): {
+  courseId: number;
+  code: string;
+  title: string;
+  reason: string | null;
+}[] {
+  return db
+    .select({
+      courseId: permissionRequests.courseId,
+      code: courses.code,
+      title: courses.title,
+      reason: permissionRequests.reason,
+    })
+    .from(permissionRequests)
+    .innerJoin(courses, eq(permissionRequests.courseId, courses.id))
+    .where(eq(permissionRequests.status, "pending"))
+    .all();
 }
 
 export type EnrolResult = { ok: true } | { ok: false; reason: string };
@@ -294,11 +389,12 @@ export function enrol(courseId: number): EnrolResult {
   const course = listCourses().find((c) => c.id === courseId);
   if (!course) return { ok: false, reason: "no such course" };
   if (course.state !== "none") return { ok: false, reason: `already ${course.state} in ${course.code}` };
-  if (!course.prereqsMet) {
+  const hasPermission = course.permissionStatus === "approved";
+  if (!course.prereqsMet && !hasPermission) {
     const missing = course.prerequisites.filter((p) => !p.met).map((p) => p.code);
     return { ok: false, reason: `prerequisites not met for ${course.code}: ${missing.join(", ")}` };
   }
-  if (course.seatsLeft <= 0) return { ok: false, reason: `${course.code} is full` };
+  if (course.seatsLeft <= 0 && !hasPermission) return { ok: false, reason: `${course.code} is full` };
 
   db.insert(enrolments).values({ courseId, status: "enrolled" }).run();
   return { ok: true };
