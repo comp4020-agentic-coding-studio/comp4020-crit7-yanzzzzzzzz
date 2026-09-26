@@ -151,11 +151,19 @@ const SEED_PREREQS: [course: string, requires: string][] = [
   ["COMP3670", "COMP1100"],
 ];
 
+// Each row is seeded independently (checked, then inserted if missing)
+// rather than gated on "the table is empty" — a database seeded before the
+// specialisations feature existed already has the 9 original courses, so a
+// whole-table guard would silently skip seeding the specialisations, the new
+// COMP3670 elective, and its prerequisite forever on that install.
 function seedCatalog(): void {
-  if (db.select().from(courses).limit(1).all().length > 0) return;
-
   const specByName = new Map<string, number>();
   for (const spec of SEED_SPECIALISATIONS) {
+    const existing = db.select().from(specialisations).where(eq(specialisations.name, spec.name)).get();
+    if (existing) {
+      specByName.set(spec.name, existing.id);
+      continue;
+    }
     const row = db.insert(specialisations).values(spec).returning({ id: specialisations.id }).get();
     specByName.set(spec.name, row.id);
   }
@@ -163,6 +171,14 @@ function seedCatalog(): void {
   const byCode = new Map<string, number>();
   for (const { specialisation, ...course } of SEED_COURSES) {
     const specialisationId = specialisation ? (specByName.get(specialisation) ?? null) : null;
+    const existing = db.select().from(courses).where(eq(courses.code, course.code)).get();
+    if (existing) {
+      byCode.set(course.code, existing.id);
+      if (existing.specialisationId === null && specialisationId !== null) {
+        db.update(courses).set({ specialisationId }).where(eq(courses.id, existing.id)).run();
+      }
+      continue;
+    }
     const row = db
       .insert(courses)
       .values({ ...course, specialisationId })
@@ -173,9 +189,13 @@ function seedCatalog(): void {
   for (const [code, requiresCode] of SEED_PREREQS) {
     const courseId = byCode.get(code);
     const requiresId = byCode.get(requiresCode);
-    if (courseId && requiresId) {
-      db.insert(prerequisites).values({ courseId, requiresId }).run();
-    }
+    if (!courseId || !requiresId) continue;
+    const existing = db
+      .select()
+      .from(prerequisites)
+      .where(and(eq(prerequisites.courseId, courseId), eq(prerequisites.requiresId, requiresId)))
+      .get();
+    if (!existing) db.insert(prerequisites).values({ courseId, requiresId }).run();
   }
 }
 
