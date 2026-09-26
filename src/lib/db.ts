@@ -4,7 +4,16 @@ import Database from "better-sqlite3";
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import { type Course, type Enrolment, courses, enrolments, prerequisites } from "./schema";
+import {
+  type Course,
+  type Enrolment,
+  type Specialisation,
+  courses,
+  enrolments,
+  prerequisites,
+  profile,
+  specialisations,
+} from "./schema";
 
 // One SQLite file is the app's whole persistent state. In production
 // fly.toml points DATABASE_PATH at the machine's volume (/data), which is
@@ -24,25 +33,111 @@ export const db = drizzle(client);
 // commit the migration it writes to drizzle/.
 migrate(db, { migrationsFolder: "./drizzle" });
 
-export type { Course, Enrolment };
+export type { Course, Enrolment, Specialisation };
 
 // A representative program total, so "what's left" has something to be left
 // out of. There's no real program/degree record in this slice — see README.
 export const REQUIRED_UNITS = 96;
 
+// The real Master of Computing's direction structure (a student picks one,
+// then enrols in courses within it) — cited from
+// programsandcourses.anu.edu.au/2017/program/VCOMP. Fixed seed, same as the
+// catalog: no admin flow to add or edit a direction.
+const SEED_SPECIALISATIONS: { name: string; summary: string }[] = [
+  { name: "Artificial Intelligence", summary: "Reasoning, learning and intelligent agents." },
+  {
+    name: "Computational Foundations",
+    summary: "The theory underlying computing: algorithms, logic, formal methods.",
+  },
+  { name: "Computer Systems", summary: "Architecture, networks and systems software." },
+  {
+    name: "Information and Human-Centred Computing",
+    summary: "People, interaction design and creative computing.",
+  },
+  { name: "Software Engineering", summary: "Designing and building software that lasts." },
+];
+
 // A student's own catalog admin is out of scope for this slice (see README),
 // so the catalog is a fixed seed applied once at boot, mirroring a chunk of
-// a real COMP program's prerequisite chain.
-const SEED_COURSES: { code: string; title: string; units: number; capacity: number }[] = [
-  { code: "COMP1100", title: "Introduction to Programming and Algorithms", units: 6, capacity: 3 },
-  { code: "COMP1130", title: "Introduction to Software Engineering", units: 6, capacity: 3 },
-  { code: "COMP2100", title: "Software Design Methodologies", units: 6, capacity: 2 },
-  { code: "COMP2600", title: "Formal Methods for Software Engineering", units: 6, capacity: 2 },
-  { code: "COMP3600", title: "Algorithms", units: 6, capacity: 1 },
-  { code: "COMP4020", title: "Agentic Coding Studio", units: 6, capacity: 1 },
-  { code: "COMP1720", title: "Art and Interaction Design", units: 6, capacity: 3 },
-  { code: "COMP2550", title: "Studio Habits of Mind", units: 6, capacity: 3 },
-  { code: "COMP3530", title: "Advanced Computer Networks", units: 6, capacity: 0 },
+// a real COMP program's prerequisite chain. `specialisation` is null for
+// core/foundational courses that belong to no direction.
+const SEED_COURSES: {
+  code: string;
+  title: string;
+  units: number;
+  capacity: number;
+  specialisation: string | null;
+}[] = [
+  {
+    code: "COMP1100",
+    title: "Introduction to Programming and Algorithms",
+    units: 6,
+    capacity: 3,
+    specialisation: null,
+  },
+  {
+    code: "COMP1130",
+    title: "Introduction to Software Engineering",
+    units: 6,
+    capacity: 3,
+    specialisation: null,
+  },
+  {
+    code: "COMP2100",
+    title: "Software Design Methodologies",
+    units: 6,
+    capacity: 2,
+    specialisation: "Software Engineering",
+  },
+  {
+    code: "COMP2600",
+    title: "Formal Methods for Software Engineering",
+    units: 6,
+    capacity: 2,
+    specialisation: "Computational Foundations",
+  },
+  {
+    code: "COMP3600",
+    title: "Algorithms",
+    units: 6,
+    capacity: 1,
+    specialisation: "Computational Foundations",
+  },
+  {
+    code: "COMP4020",
+    title: "Agentic Coding Studio",
+    units: 6,
+    capacity: 1,
+    specialisation: "Software Engineering",
+  },
+  {
+    code: "COMP1720",
+    title: "Art and Interaction Design",
+    units: 6,
+    capacity: 3,
+    specialisation: "Information and Human-Centred Computing",
+  },
+  {
+    code: "COMP2550",
+    title: "Studio Habits of Mind",
+    units: 6,
+    capacity: 3,
+    specialisation: "Information and Human-Centred Computing",
+  },
+  {
+    code: "COMP3530",
+    title: "Advanced Computer Networks",
+    units: 6,
+    capacity: 0,
+    specialisation: "Computer Systems",
+  },
+  {
+    code: "COMP3670",
+    title: "Introduction to Artificial Intelligence",
+    units: 6,
+    capacity: 2,
+    specialisation: "Artificial Intelligence",
+  },
 ];
 
 // [course, prerequisite] pairs — a course needs every prerequisite listed
@@ -53,14 +148,26 @@ const SEED_PREREQS: [course: string, requires: string][] = [
   ["COMP2600", "COMP2100"],
   ["COMP3600", "COMP2600"],
   ["COMP4020", "COMP2100"],
+  ["COMP3670", "COMP1100"],
 ];
 
 function seedCatalog(): void {
   if (db.select().from(courses).limit(1).all().length > 0) return;
 
+  const specByName = new Map<string, number>();
+  for (const spec of SEED_SPECIALISATIONS) {
+    const row = db.insert(specialisations).values(spec).returning({ id: specialisations.id }).get();
+    specByName.set(spec.name, row.id);
+  }
+
   const byCode = new Map<string, number>();
-  for (const course of SEED_COURSES) {
-    const row = db.insert(courses).values(course).returning({ id: courses.id }).get();
+  for (const { specialisation, ...course } of SEED_COURSES) {
+    const specialisationId = specialisation ? (specByName.get(specialisation) ?? null) : null;
+    const row = db
+      .insert(courses)
+      .values({ ...course, specialisationId })
+      .returning({ id: courses.id })
+      .get();
     byCode.set(course.code, row.id);
   }
   for (const [code, requiresCode] of SEED_PREREQS) {
@@ -74,6 +181,15 @@ function seedCatalog(): void {
 
 seedCatalog();
 
+// The single student's chosen specialisation. Row id is always 1; created
+// once at boot, same pattern as seedCatalog above.
+function ensureProfile(): void {
+  if (db.select().from(profile).limit(1).all().length > 0) return;
+  db.insert(profile).values({ id: 1, chosenSpecialisationId: null }).run();
+}
+
+ensureProfile();
+
 export type EnrolmentState = "none" | "enrolled" | "completed";
 
 export type CourseView = Course & {
@@ -81,14 +197,41 @@ export type CourseView = Course & {
   state: EnrolmentState;
   prerequisites: { code: string; title: string; met: boolean }[];
   prereqsMet: boolean;
+  specialisationName: string | null;
+  inChosenSpecialisation: boolean;
 };
+
+export function listSpecialisations(): Pick<Specialisation, "id" | "name" | "summary">[] {
+  return db
+    .select({ id: specialisations.id, name: specialisations.name, summary: specialisations.summary })
+    .from(specialisations)
+    .all();
+}
+
+export function getChosenSpecialisationId(): number | null {
+  const row = db.select().from(profile).where(eq(profile.id, 1)).get();
+  return row?.chosenSpecialisationId ?? null;
+}
+
+export type ChooseSpecialisationResult = { ok: true } | { ok: false; reason: string };
+
+export function chooseSpecialisation(specialisationId: number): ChooseSpecialisationResult {
+  const exists = db.select().from(specialisations).where(eq(specialisations.id, specialisationId)).get();
+  if (!exists) return { ok: false, reason: "no such specialisation" };
+
+  db.update(profile).set({ chosenSpecialisationId: specialisationId }).where(eq(profile.id, 1)).run();
+  return { ok: true };
+}
 
 export function listCourses(): CourseView[] {
   const allCourses = db.select().from(courses).all();
   const allEnrolments = db.select().from(enrolments).all();
   const allPrereqs = db.select().from(prerequisites).all();
+  const allSpecialisations = db.select().from(specialisations).all();
+  const chosenSpecialisationId = getChosenSpecialisationId();
 
   const byId = new Map(allCourses.map((c) => [c.id, c]));
+  const specById = new Map(allSpecialisations.map((s) => [s.id, s]));
   const enrolmentByCourse = new Map(allEnrolments.map((e) => [e.courseId, e]));
   const completedCourseIds = new Set(
     allEnrolments.filter((e) => e.status === "completed").map((e) => e.courseId),
@@ -116,6 +259,11 @@ export function listCourses(): CourseView[] {
         met: completedCourseIds.has(r.id),
       })),
       prereqsMet: requires.every((r) => completedCourseIds.has(r.id)),
+      specialisationName: course.specialisationId
+        ? (specById.get(course.specialisationId)?.name ?? null)
+        : null,
+      inChosenSpecialisation:
+        chosenSpecialisationId !== null && course.specialisationId === chosenSpecialisationId,
     };
   });
 }
