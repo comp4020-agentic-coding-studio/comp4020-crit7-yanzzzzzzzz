@@ -66,6 +66,28 @@ export const profile = sqliteTable("profile", {
   chosenSpecialisationId: int("chosen_specialisation_id").references(() => specialisations.id),
 });
 
+// One row per course a student has asked the convener to waive a block for
+// (a full class or an unmet prerequisite) — unique on courseId, so asking
+// again after a denial just resets the same row rather than piling up
+// history, matching this prototype's no-admin, no-log scope.
+export const permissionRequests = sqliteTable(
+  "permission_requests",
+  {
+    id: int().primaryKey({ autoIncrement: true }),
+    courseId: int("course_id")
+      .notNull()
+      .references(() => courses.id),
+    reason: text(),
+    status: text().notNull(), // "pending" | "approved" | "denied"
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    decidedAt: text("decided_at"),
+  },
+  (t) => [unique().on(t.courseId)],
+);
+
 export type Course = typeof courses.$inferSelect;
 export type Enrolment = typeof enrolments.$inferSelect;
 export type Specialisation = typeof specialisations.$inferSelect;
+export type PermissionRequest = typeof permissionRequests.$inferSelect;
